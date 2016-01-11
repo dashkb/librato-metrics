@@ -18,6 +18,8 @@ module Librato
             requests = [queued]
           end
           requests.each do |request|
+            request[:gauges] = filter_metrics(request[:gauges])
+            request[:counters] = filter_metrics(request[:counters])
             payload = SmartJSON.write(request)
             # expects 200
             client.connection.post('metrics', payload)
@@ -25,6 +27,13 @@ module Librato
         end
 
       private
+        def filter_metrics(metrics)
+          return unless metrics.try(:any?)
+          @metric_blacklist = LIBRATO_METRIC_BLACKLIST rescue []
+          metrics.reject do |metric|
+            @metric_blacklist.any? { |regex| regex.match(metric[:name]) }
+          end
+        end
 
         def chunk_queued(queued, per_request)
           return [queued] if queue_count(queued) <= per_request
